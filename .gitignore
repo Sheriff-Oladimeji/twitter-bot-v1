@@ -1,0 +1,22 @@
+# Python virtual environment
+venv/
+.env
+
+# Byte-compiled / cached files
+__pycache__/
+*.py[cod]
+*.so
+
+# Log files
+*.log
+logs/
+debug.log
+
+# Playwright browser cache
+playwright/.cache/
+
+# VS Code settings (if using VS Code)
+.vscode/
+
+# macOS system files
+.DS_Store
