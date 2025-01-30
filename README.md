@@ -1,45 +1,55 @@
-# Automated Twitter Bot
+# Twitter Bot
 
-A Twitter bot that automatically generates and posts tweets about my tech journey and experiences.
+An automated Twitter bot that generates and posts engaging tweets about tech and learning experiences.
 
 ## Features
 
-- Generates personalized tweets about tech, coding, and learning experiences
-- Smart rate limiting:
-  - Monthly limit: 450 tweets (below Twitter's 500 limit)
-  - Daily limit: 15 tweets
-  - Minimum interval: 96 minutes between tweets
-- Automatically resets counters each month/day
-- Runs every 2 hours via GitHub Actions (will only tweet if enough time has passed)
-
-## Setup
-
-1. Ensure all environment variables are set in GitHub repository secrets:
-   - `TWITTER_API_KEY_GITHUB`
-   - `TWITTER_API_SECRET_GITHUB`
-   - `TWITTER_ACCESS_TOKEN_GITHUB`
-   - `TWITTER_ACCESS_TOKEN_SECRET_GITHUB`
-   - `TOGETHER_API_KEY_GITHUB`
-
-2. The bot will automatically run via GitHub Actions
-
-3. You can also manually trigger the workflow from the Actions tab in GitHub
+- Generates natural, engaging tweets using Together AI
+- Posts automatically at regular intervals
+- Maintains rate limits and tweet history
+- Ensures unique content by checking recent tweets
 
 ## Rate Limits
 
-The bot implements a three-tier rate limiting system:
+- Posts every 30 minutes
+- Maximum 24 tweets per day
+- Monthly limit of 470 tweets
+- Built-in safety checks to prevent exceeding Twitter's limits
 
-1. Monthly Limit
-   - Maximum 450 tweets per month (safety margin below Twitter's 500 limit)
-   - Counter automatically resets at the start of each month
+## Setup
 
-2. Daily Limit
-   - Maximum 15 tweets per day (calculated from monthly limit)
-   - Counter resets at midnight
+1. Clone the repository
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-3. Time Interval
-   - Minimum 96 minutes between tweets
-   - Ensures tweets are spread throughout the day
-   - Prevents clustering of tweets
+3. Set up environment variables in GitHub repository secrets:
+- `TWITTER_API_KEY_GITHUB`
+- `TWITTER_API_SECRET_GITHUB`
+- `TWITTER_ACCESS_TOKEN_GITHUB`
+- `TWITTER_ACCESS_TOKEN_SECRET_GITHUB`
+- `TOGETHER_API_KEY_GITHUB`
 
-The bot will automatically skip tweeting if any of these limits are reached.
+## Running Locally
+
+```bash
+python main.py
+```
+
+## GitHub Actions
+
+The bot runs automatically via GitHub Actions:
+- Scheduled to run every 30 minutes
+- Can be triggered manually through workflow_dispatch
+- Checks rate limits before posting
+
+## Dependencies
+
+- tweepy==4.14.0
+- python-dotenv==1.0.0
+- together==1.3.14
+
+## License
+
+MIT License
