@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 import tweepy
-from together import Together
+import together
 
 def log_info(message):
     """Print log message with timestamp"""
@@ -30,7 +30,7 @@ twitter_client = tweepy.Client(
 )
 
 # Together AI Configuration
-together_client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
+together.api_key = os.getenv("TOGETHER_API_KEY")
 
 # Constants
 MONTHLY_TWEET_LIMIT = 450  # Setting it below 500 for safety margin
@@ -238,7 +238,7 @@ def generate_tweet():
         category = random.choice(content_prompts)
         prompt = random.choice(category)
 
-        response = together_client.chat.completions.create(
+        response = together.chat.completions.create(
             model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
             messages=[
                 {"role": "system", "content": system_prompt},
