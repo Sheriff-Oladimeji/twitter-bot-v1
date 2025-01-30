@@ -1,3 +1,3 @@
 tweepy==4.14.0
 python-dotenv==1.0.0
-together-python==0.1.7
+together==0.2.8

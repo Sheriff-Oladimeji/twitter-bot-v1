@@ -238,18 +238,20 @@ def generate_tweet():
         category = random.choice(content_prompts)
         prompt = random.choice(category)
 
-        response = together.chat.completions.create(
-            model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": f"Generate a natural, engaging tweet about: {prompt}. Write as a 20-year-old CS student and full-stack developer. Make it sound authentic and personal. Make sure it's different from these recent tweets: {recent_tweets}",
-                },
-            ],
+        response = together.Complete.create(
+            prompt=f"""System: {system_prompt}
+            
+Human: Generate a natural, engaging tweet about: {prompt}. Write as a 20-year-old CS student and full-stack developer. Make it sound authentic and personal. Make sure it's different from these recent tweets: {recent_tweets}
+""",
+            model="togethercomputer/llama-2-70b-chat",
+            max_tokens=100,
+            temperature=0.7,
+            top_k=94,
+            top_p=0.84,
+            repetition_penalty=1.1
         )
 
-        tweet = response.choices[0].message.content.strip()
+        tweet = response['output']['choices'][0]['text'].strip()
 
         # Remove any quotes that might have been added
         if tweet.startswith('"') and tweet.endswith('"'):
