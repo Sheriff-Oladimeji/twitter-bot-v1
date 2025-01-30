@@ -22,9 +22,9 @@ twitter_client = tweepy.Client(
 together_client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
 
 # Constants
-MONTHLY_TWEET_LIMIT = 450  # Setting it below 500 for safety margin
-DAILY_TWEET_LIMIT = 15  # 450 tweets / 30 days
-MIN_INTERVAL_MINUTES = 96  # 24 hours / 15 tweets
+MONTHLY_TWEET_LIMIT = 470  # Setting it below 500 for safety margin
+DAILY_TWEET_LIMIT = 24  # 24 tweets per day
+MIN_INTERVAL_MINUTES = 30  # 30 minutes between tweets
 COUNTER_FILE = "tweet_counter.json"
 HISTORY_FILE = "tweet_history.json"
 
