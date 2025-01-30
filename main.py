@@ -1,6 +1,7 @@
 import os
 import random
 import json
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
@@ -16,6 +17,20 @@ def log_error(message):
     """Print error message with timestamp"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[ERROR] {timestamp} - {message}")
+
+def retry_with_backoff(func, max_retries=3, initial_delay=5):
+    """Retry a function with exponential backoff"""
+    for retry in range(max_retries):
+        try:
+            return func()
+        except tweepy.TweepyException as e:
+            if "429" in str(e):
+                delay = initial_delay * (2 ** retry)
+                log_info(f"Rate limit hit, waiting {delay} seconds before retry {retry + 1}/{max_retries}")
+                time.sleep(delay)
+                continue
+            raise
+    return func()  # Final try
 
 # Load environment variables
 load_dotenv(find_dotenv())
@@ -293,8 +308,11 @@ def post_tweet(text):
 
 if __name__ == "__main__":
     try:
-        # Verify credentials
-        twitter_client.get_me()
+        # Verify credentials with retry
+        def verify_auth():
+            return twitter_client.get_me()
+        
+        retry_with_backoff(verify_auth)
         log_info("Twitter authentication successful")
 
         # Check all limits before proceeding
@@ -316,14 +334,20 @@ if __name__ == "__main__":
         tweet_text = generate_tweet()
         if tweet_text:
             if update_tweet_counter():
-                post_tweet(tweet_text)
-                log_info("Tweet posted successfully!")
-                log_info(f"Tweet content: {tweet_text}")
-                log_info(f"Daily tweets: {get_daily_tweet_count()}/{DAILY_TWEET_LIMIT}")
-                log_info(f"Next tweet available in {MIN_INTERVAL_MINUTES} minutes")
+                def do_tweet():
+                    return post_tweet(tweet_text)
+                
+                if retry_with_backoff(do_tweet):
+                    log_info("Tweet posted successfully!")
+                    log_info(f"Tweet content: {tweet_text}")
+                    log_info(f"Daily tweets: {get_daily_tweet_count()}/{DAILY_TWEET_LIMIT}")
+                    log_info(f"Next tweet available in {MIN_INTERVAL_MINUTES} minutes")
+                else:
+                    log_error("Failed to post tweet after retries")
             else:
                 log_info("Monthly tweet limit reached after counter update.")
         else:
             log_error("Failed to generate tweet")
     except Exception as e:
         log_error(f"Critical error: {e}")
+        exit(1)
