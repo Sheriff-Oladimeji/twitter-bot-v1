@@ -1,0 +1,40 @@
+{
+  "tweets": [
+    {
+      "content": "When building a technical portfolio, focus on 3-5 projects that demonstrate your expertise in a specific area. Ensure each project has a clear problem statement, design, implementation, and lessons learned. This approach showcases your depth of knowledge and ability to tackle complex problems.",
+      "timestamp": "2025-01-30T15:31:28.171299"
+    },
+    {
+      "content": "\"When validating product ideas, use the 'Jobs To Be Done' framework to identify the underlying motivations and pain points of your target users. This will help you create a more empathetic understanding of their needs and develop a more effective solution.\"",
+      "timestamp": "2025-01-30T15:31:35.551202"
+    },
+    {
+      "content": "\"When implementing recursive algorithms, consider using a 'tail recursion' approach to minimize stack space usage. This involves passing the recursive call as the last operation, allowing the compiler to optimize the call stack.\" #Coding #Developer",
+      "timestamp": "2025-01-30T15:32:34.661302"
+    },
+    {
+      "content": "Just got back from a 3-hour coding session and I'm still buzzing from the flow. My daily routine usually starts with a 30-minute review of the previous day's code, followed by a 2-hour block of focused coding. I find that taking short breaks every 45 minutes helps me stay sharp and avoid burnout. What's your ideal coding routine?",
+      "timestamp": "2025-01-30T15:39:27.150438"
+    },
+    {
+      "content": "Just spent the last year rewriting my codebase to use a service layer architecture and it's been a game changer. No more tightly coupled components, just clean, modular code that's a joy to work with. Anyone else made the switch?",
+      "timestamp": "2025-01-30T15:39:36.773806"
+    },
+    {
+      "content": "Just spent the day refactoring my Node.js project and I'm loving the simplicity of using the 'Controller-Service-Repository' pattern. Decoupling logic and data access has made my code so much easier to maintain. Anyone else use this pattern in their projects? #Nodejs #FullStack",
+      "timestamp": "2025-01-30T15:45:09.126023"
+    },
+    {
+      "content": "From high school coding projects to indie hacker dreams, it's been a wild ride. 2 years into my CS degree and I'm still learning, still building, and still loving every minute of it. What's your journey been like? #CSstudent #FullStackDeveloper",
+      "timestamp": "2025-01-30T15:48:16.709559"
+    },
+    {
+      "content": "Just wrapped up a new feature for my indie project and I'm loving the feeling of seeing it all come together. Full-stack dev life is real - from debugging Node.js to styling React components, it's a wild ride. Anyone else have a project that's been a labor of love? #FullStack #IndieHacker",
+      "timestamp": "2025-01-30T15:56:38.677760"
+    },
+    {
+      "content": "Just spent the day building a new feature for my React Native app and I'm loving the hot reload feature. No more tedious recompiles or waiting for the simulator to load. Anyone else use React Native for mobile dev? What are some of your favorite features? #ReactNative #MobileDev",
+      "timestamp": "2025-01-30T15:56:46.498355"
+    }
+  ]
+}
