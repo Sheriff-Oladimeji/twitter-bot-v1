@@ -15,11 +15,11 @@ A Twitter bot that automatically generates and posts tweets about my tech journe
 ## Setup
 
 1. Ensure all environment variables are set in GitHub repository secrets:
-   - `TWITTER_API_KEY`
-   - `TWITTER_API_SECRET`
-   - `TWITTER_ACCESS_TOKEN`
-   - `TWITTER_ACCESS_TOKEN_SECRET`
-   - `TOGETHER_API_KEY`
+   - `TWITTER_API_KEY_GITHUB`
+   - `TWITTER_API_SECRET_GITHUB`
+   - `TWITTER_ACCESS_TOKEN_GITHUB`
+   - `TWITTER_ACCESS_TOKEN_SECRET_GITHUB`
+   - `TOGETHER_API_KEY_GITHUB`
 
 2. The bot will automatically run via GitHub Actions
 
