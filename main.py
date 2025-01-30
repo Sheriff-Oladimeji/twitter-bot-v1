@@ -1,40 +1,14 @@
 import os
 import random
 import json
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 import tweepy
-import together
-
-def log_info(message):
-    """Print log message with timestamp"""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[INFO] {timestamp} - {message}")
-
-def log_error(message):
-    """Print error message with timestamp"""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[ERROR] {timestamp} - {message}")
-
-def retry_with_backoff(func, max_retries=3, initial_delay=60):
-    """Retry a function with exponential backoff"""
-    for retry in range(max_retries):
-        try:
-            return func()
-        except tweepy.TweepyException as e:
-            if "429" in str(e):
-                delay = initial_delay * (2 ** retry)
-                log_info(f"Rate limit hit, waiting {delay} seconds before retry {retry + 1}/{max_retries}")
-                time.sleep(delay)
-                continue
-            raise
-    return func()  # Final try
+from together import Together
 
 # Load environment variables
 load_dotenv(find_dotenv())
-log_info("Starting Twitter Bot...")
 
 # Twitter API Configuration (OAuth 1.0a REQUIRED for posting tweets)
 twitter_client = tweepy.Client(
@@ -45,12 +19,12 @@ twitter_client = tweepy.Client(
 )
 
 # Together AI Configuration
-together.api_key = os.getenv("TOGETHER_API_KEY")
+together_client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
 
 # Constants
 MONTHLY_TWEET_LIMIT = 450  # Setting it below 500 for safety margin
-DAILY_TWEET_LIMIT = 15    # 450 tweets / 30 days
-MIN_INTERVAL_MINUTES = 30  # More reasonable interval for testing
+DAILY_TWEET_LIMIT = 15  # 450 tweets / 30 days
+MIN_INTERVAL_MINUTES = 96  # 24 hours / 15 tweets
 COUNTER_FILE = "tweet_counter.json"
 HISTORY_FILE = "tweet_history.json"
 
@@ -82,7 +56,7 @@ def save_tweet_history(tweet):
 def update_tweet_counter():
     """Update and check monthly tweet counter"""
     current_month = datetime.now().strftime("%Y-%m")
-    
+
     try:
         if Path(COUNTER_FILE).exists():
             with open(COUNTER_FILE, "r") as f:
@@ -92,21 +66,19 @@ def update_tweet_counter():
 
         # Reset counter if it's a new month
         if counter_data["current_month"] != current_month:
-            log_info(f"New month detected. Resetting counter. Old month: {counter_data['current_month']}")
             counter_data = {"current_month": current_month, "tweet_count": 0}
-        
+
         # Increment counter
         counter_data["tweet_count"] += 1
-        log_info(f"Monthly tweet count: {counter_data['tweet_count']}/{MONTHLY_TWEET_LIMIT}")
-        
+
         # Save updated counter
         with open(COUNTER_FILE, "w") as f:
             json.dump(counter_data, f, indent=2)
-            
+
         return counter_data["tweet_count"] <= MONTHLY_TWEET_LIMIT
-        
+
     except Exception as e:
-        log_error(f"Error updating tweet counter: {e}")
+        print(f"Error updating tweet counter: {e}")
         return False
 
 
@@ -117,14 +89,14 @@ def can_tweet_this_month():
             with open(COUNTER_FILE, "r") as f:
                 counter_data = json.load(f)
                 current_month = datetime.now().strftime("%Y-%m")
-                
+
                 if counter_data["current_month"] != current_month:
                     return True
-                    
+
                 return counter_data["tweet_count"] < MONTHLY_TWEET_LIMIT
         return True
     except Exception as e:
-        log_error(f"Error checking tweet limit: {e}")
+        print(f"Error checking tweet limit: {e}")
         return False
 
 
@@ -137,7 +109,7 @@ def get_last_tweet_time():
                 if history["tweets"]:
                     return datetime.fromisoformat(history["tweets"][-1]["timestamp"])
     except Exception as e:
-        log_error(f"Error getting last tweet time: {e}")
+        print(f"Error getting last tweet time: {e}")
     return None
 
 
@@ -158,16 +130,15 @@ def get_daily_tweet_count():
                 history = json.load(f)
                 today = datetime.now().date()
                 today_tweets = [
-                    tweet for tweet in history["tweets"]
+                    tweet
+                    for tweet in history["tweets"]
                     if datetime.fromisoformat(tweet["timestamp"]).date() == today
                 ]
-                count = len(today_tweets)
-                log_info(f"Daily tweet count: {count}/{DAILY_TWEET_LIMIT}")
-                return count
+                return len(today_tweets)
         return 0
     except Exception as e:
-        log_error(f"Error getting daily tweet count: {e}")
-        return DAILY_TWEET_LIMIT
+        print(f"Error getting daily tweet count: {e}")
+        return DAILY_TWEET_LIMIT  # Return limit to prevent tweeting on error
 
 
 def can_tweet_today():
@@ -253,22 +224,18 @@ def generate_tweet():
         category = random.choice(content_prompts)
         prompt = random.choice(category)
 
-        # Create the complete prompt
-        full_prompt = f"""System: {system_prompt}
-
-User: Generate a natural, engaging tweet about: {prompt}. Write as a 20-year-old CS student and full-stack developer. Make it sound authentic and personal. Make sure it's different from these recent tweets: {recent_tweets}"""
-
-        response = together.Completion.create(
-            prompt=full_prompt,
-            model="togethercomputer/llama-2-70b-chat",
-            max_tokens=100,
-            temperature=0.7,
-            top_p=0.7,
-            top_k=50,
-            repetition_penalty=1.1
+        response = together_client.chat.completions.create(
+            model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": f"Generate a natural, engaging tweet about: {prompt}. Write as a 20-year-old CS student and full-stack developer. Make it sound authentic and personal. Make sure it's different from these recent tweets: {recent_tweets}",
+                },
+            ],
         )
 
-        tweet = response['output']['text'].strip()
+        tweet = response.choices[0].message.content.strip()
 
         # Remove any quotes that might have been added
         if tweet.startswith('"') and tweet.endswith('"'):
@@ -279,79 +246,56 @@ User: Generate a natural, engaging tweet about: {prompt}. Write as a 20-year-old
 
         return tweet
     except Exception as e:
-        log_error(f"AI Error: {e}")
+        print(f"AI Error: {e}")
         return None
 
 
 def post_tweet(text):
     """Post tweet to Twitter"""
     if not text:
-        log_error("Empty tweet content")
+        print("Empty tweet content")
         return False
 
     try:
-        # Add delay if we've tweeted recently
-        last_tweet_time = get_last_tweet_time()
-        if last_tweet_time:
-            time_since_last = datetime.now() - last_tweet_time
-            if time_since_last < timedelta(minutes=MIN_INTERVAL_MINUTES):
-                wait_time = MIN_INTERVAL_MINUTES - (time_since_last.total_seconds() / 60)
-                log_info(f"Rate limit: Waiting {wait_time:.1f} minutes before next tweet")
-                return False
-
         response = twitter_client.create_tweet(text=text)
-        log_info(f"Posted Tweet: {text}")
+        print(f"Posted Tweet: {text}")
         return True
     except tweepy.TweepyException as e:
-        if "429" in str(e):
-            log_error(f"Twitter rate limit reached. Please wait before trying again.")
-        else:
-            log_error(f"Twitter Error: {e}")
+        print(f"Twitter Error: {e}")
         return False
 
 
 if __name__ == "__main__":
     try:
-        # Verify credentials with retry
-        def verify_auth():
-            return twitter_client.get_me()
-        
-        retry_with_backoff(verify_auth)
-        log_info("Twitter authentication successful")
+        # Verify credentials
+        twitter_client.get_me()
+        print("Authentication Successful")
 
         # Check all limits before proceeding
         if not can_tweet_this_month():
-            log_info("Monthly tweet limit reached. Waiting for next month.")
+            print("Monthly tweet limit reached. Waiting for next month.")
             exit(0)
-            
+
         if not can_tweet_today():
-            log_info("Daily tweet limit reached. Waiting for tomorrow.")
+            print("Daily tweet limit reached. Waiting for tomorrow.")
             exit(0)
-            
+
         if not can_tweet_now():
-            last_tweet = get_last_tweet_time()
-            next_tweet = last_tweet + timedelta(minutes=MIN_INTERVAL_MINUTES)
-            log_info(f"Too soon since last tweet. Last tweet: {last_tweet}")
-            log_info(f"Next tweet available at: {next_tweet}")
+            print(
+                f"Too soon since last tweet. Waiting {MIN_INTERVAL_MINUTES} minutes between tweets."
+            )
             exit(0)
-            
+
         tweet_text = generate_tweet()
         if tweet_text:
-            if update_tweet_counter():
-                def do_tweet():
-                    return post_tweet(tweet_text)
-                
-                if retry_with_backoff(do_tweet):
-                    log_info("Tweet posted successfully!")
-                    log_info(f"Tweet content: {tweet_text}")
-                    log_info(f"Daily tweets: {get_daily_tweet_count()}/{DAILY_TWEET_LIMIT}")
-                    log_info(f"Next tweet available in {MIN_INTERVAL_MINUTES} minutes")
-                else:
-                    log_error("Failed to post tweet after retries")
+            if update_tweet_counter():  # Only post if we haven't hit the limit
+                post_tweet(tweet_text)
+                print("Tweet posted successfully!")
+                print(f"Daily tweets: {get_daily_tweet_count()}/{DAILY_TWEET_LIMIT}")
+                print(f"Next tweet available in {MIN_INTERVAL_MINUTES} minutes")
             else:
-                log_info("Monthly tweet limit reached after counter update.")
+                print("Monthly tweet limit reached after counter update.")
         else:
-            log_error("Failed to generate tweet")
+            print("Failed to generate tweet")
     except Exception as e:
-        log_error(f"Critical error: {e}")
-        exit(1)
+        print(f"Error: {e}")
