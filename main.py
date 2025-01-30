@@ -24,7 +24,7 @@ together_client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
 # Constants
 MONTHLY_TWEET_LIMIT = 450  # Setting it below 500 for safety margin
 DAILY_TWEET_LIMIT = 15    # 450 tweets / 30 days
-MIN_INTERVAL_MINUTES = 96  # 24 hours / 15 tweets
+MIN_INTERVAL_MINUTES = 2  # Testing: tweet every 2 minutes
 COUNTER_FILE = "tweet_counter.json"
 HISTORY_FILE = "tweet_history.json"
 

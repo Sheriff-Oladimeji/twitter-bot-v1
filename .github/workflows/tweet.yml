@@ -2,8 +2,8 @@ name: Automated Tweeting
 
 on:
   schedule:
-    # Runs every 96 minutes (1.6 hours)
-    - cron: '0 */2 * * *'  # GitHub Actions minimum interval is 1 hour, so we'll run every 2 hours
+    # Runs every 2 minutes for testing
+    - cron: '*/2 * * * *'
   workflow_dispatch:  # Allows manual trigger
 
 jobs:
