@@ -2,8 +2,8 @@ name: Automated Tweeting
 
 on:
   schedule:
-    # Runs every 2 minutes for testing
-    - cron: '*/2 * * * *'
+    # Runs every 30 minutes
+    - cron: '*/30 * * * *'
   workflow_dispatch:  # Allows manual trigger
 
 jobs:

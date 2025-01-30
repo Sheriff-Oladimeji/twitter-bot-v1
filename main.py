@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 import tweepy
-import together
+from together import Together
 
 def log_info(message):
     """Print log message with timestamp"""
@@ -30,12 +30,12 @@ twitter_client = tweepy.Client(
 )
 
 # Together AI Configuration
-together.api_key = os.getenv("TOGETHER_API_KEY")
+together_client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
 
 # Constants
 MONTHLY_TWEET_LIMIT = 450  # Setting it below 500 for safety margin
 DAILY_TWEET_LIMIT = 15    # 450 tweets / 30 days
-MIN_INTERVAL_MINUTES = 2  # Testing: tweet every 2 minutes
+MIN_INTERVAL_MINUTES = 30  # More reasonable interval for testing
 COUNTER_FILE = "tweet_counter.json"
 HISTORY_FILE = "tweet_history.json"
 
@@ -238,20 +238,18 @@ def generate_tweet():
         category = random.choice(content_prompts)
         prompt = random.choice(category)
 
-        response = together.Complete.create(
-            prompt=f"""System: {system_prompt}
-            
-Human: Generate a natural, engaging tweet about: {prompt}. Write as a 20-year-old CS student and full-stack developer. Make it sound authentic and personal. Make sure it's different from these recent tweets: {recent_tweets}
-""",
-            model="togethercomputer/llama-2-70b-chat",
-            max_tokens=100,
-            temperature=0.7,
-            top_k=94,
-            top_p=0.84,
-            repetition_penalty=1.1
+        response = together_client.chat.completions.create(
+            model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": f"Generate a natural, engaging tweet about: {prompt}. Write as a 20-year-old CS student and full-stack developer. Make it sound authentic and personal. Make sure it's different from these recent tweets: {recent_tweets}",
+                },
+            ],
         )
 
-        tweet = response['output']['choices'][0]['text'].strip()
+        tweet = response.choices[0].message.content.strip()
 
         # Remove any quotes that might have been added
         if tweet.startswith('"') and tweet.endswith('"'):
@@ -273,11 +271,23 @@ def post_tweet(text):
         return False
 
     try:
+        # Add delay if we've tweeted recently
+        last_tweet_time = get_last_tweet_time()
+        if last_tweet_time:
+            time_since_last = datetime.now() - last_tweet_time
+            if time_since_last < timedelta(minutes=MIN_INTERVAL_MINUTES):
+                wait_time = MIN_INTERVAL_MINUTES - (time_since_last.total_seconds() / 60)
+                log_info(f"Rate limit: Waiting {wait_time:.1f} minutes before next tweet")
+                return False
+
         response = twitter_client.create_tweet(text=text)
         log_info(f"Posted Tweet: {text}")
         return True
     except tweepy.TweepyException as e:
-        log_error(f"Twitter Error: {e}")
+        if "429" in str(e):
+            log_error(f"Twitter rate limit reached. Please wait before trying again.")
+        else:
+            log_error(f"Twitter Error: {e}")
         return False
 
 
