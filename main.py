@@ -1,7 +1,7 @@
 import os
 import random
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 import tweepy
@@ -21,7 +21,11 @@ twitter_client = tweepy.Client(
 # Together AI Configuration
 together_client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
 
-# File to store tweet history
+# Constants
+MONTHLY_TWEET_LIMIT = 450  # Setting it below 500 for safety margin
+DAILY_TWEET_LIMIT = 15    # 450 tweets / 30 days
+MIN_INTERVAL_MINUTES = 96  # 24 hours / 15 tweets
+COUNTER_FILE = "tweet_counter.json"
 HISTORY_FILE = "tweet_history.json"
 
 
@@ -47,6 +51,98 @@ def save_tweet_history(tweet):
 
     with open(HISTORY_FILE, "w") as f:
         json.dump(history, f, indent=2)
+
+
+def update_tweet_counter():
+    """Update and check monthly tweet counter"""
+    current_month = datetime.now().strftime("%Y-%m")
+    
+    try:
+        if Path(COUNTER_FILE).exists():
+            with open(COUNTER_FILE, "r") as f:
+                counter_data = json.load(f)
+        else:
+            counter_data = {"current_month": "", "tweet_count": 0}
+
+        # Reset counter if it's a new month
+        if counter_data["current_month"] != current_month:
+            counter_data = {"current_month": current_month, "tweet_count": 0}
+        
+        # Increment counter
+        counter_data["tweet_count"] += 1
+        
+        # Save updated counter
+        with open(COUNTER_FILE, "w") as f:
+            json.dump(counter_data, f, indent=2)
+            
+        return counter_data["tweet_count"] <= MONTHLY_TWEET_LIMIT
+        
+    except Exception as e:
+        print(f"Error updating tweet counter: {e}")
+        return False
+
+
+def can_tweet_this_month():
+    """Check if we can still tweet this month"""
+    try:
+        if Path(COUNTER_FILE).exists():
+            with open(COUNTER_FILE, "r") as f:
+                counter_data = json.load(f)
+                current_month = datetime.now().strftime("%Y-%m")
+                
+                if counter_data["current_month"] != current_month:
+                    return True
+                    
+                return counter_data["tweet_count"] < MONTHLY_TWEET_LIMIT
+        return True
+    except Exception as e:
+        print(f"Error checking tweet limit: {e}")
+        return False
+
+
+def get_last_tweet_time():
+    """Get the timestamp of the last tweet"""
+    try:
+        if Path(HISTORY_FILE).exists():
+            with open(HISTORY_FILE, "r") as f:
+                history = json.load(f)
+                if history["tweets"]:
+                    return datetime.fromisoformat(history["tweets"][-1]["timestamp"])
+    except Exception as e:
+        print(f"Error getting last tweet time: {e}")
+    return None
+
+
+def can_tweet_now():
+    """Check if enough time has passed since the last tweet"""
+    last_tweet_time = get_last_tweet_time()
+    if last_tweet_time:
+        time_since_last_tweet = datetime.now() - last_tweet_time
+        return time_since_last_tweet >= timedelta(minutes=MIN_INTERVAL_MINUTES)
+    return True
+
+
+def get_daily_tweet_count():
+    """Get the number of tweets made today"""
+    try:
+        if Path(HISTORY_FILE).exists():
+            with open(HISTORY_FILE, "r") as f:
+                history = json.load(f)
+                today = datetime.now().date()
+                today_tweets = [
+                    tweet for tweet in history["tweets"]
+                    if datetime.fromisoformat(tweet["timestamp"]).date() == today
+                ]
+                return len(today_tweets)
+        return 0
+    except Exception as e:
+        print(f"Error getting daily tweet count: {e}")
+        return DAILY_TWEET_LIMIT  # Return limit to prevent tweeting on error
+
+
+def can_tweet_today():
+    """Check if we haven't exceeded the daily tweet limit"""
+    return get_daily_tweet_count() < DAILY_TWEET_LIMIT
 
 
 def generate_tweet():
@@ -169,15 +265,34 @@ def post_tweet(text):
 
 
 if __name__ == "__main__":
-    # Verify credentials
     try:
+        # Verify credentials
         twitter_client.get_me()
         print("Authentication Successful")
 
-        # Generate and post tweet
-        if tweet_content := generate_tweet():
-            post_tweet(tweet_content)
+        # Check all limits before proceeding
+        if not can_tweet_this_month():
+            print("Monthly tweet limit reached. Waiting for next month.")
+            exit(0)
+            
+        if not can_tweet_today():
+            print("Daily tweet limit reached. Waiting for tomorrow.")
+            exit(0)
+            
+        if not can_tweet_now():
+            print(f"Too soon since last tweet. Waiting {MIN_INTERVAL_MINUTES} minutes between tweets.")
+            exit(0)
+            
+        tweet_text = generate_tweet()
+        if tweet_text:
+            if update_tweet_counter():  # Only post if we haven't hit the limit
+                post_tweet(tweet_text)
+                print("Tweet posted successfully!")
+                print(f"Daily tweets: {get_daily_tweet_count()}/{DAILY_TWEET_LIMIT}")
+                print(f"Next tweet available in {MIN_INTERVAL_MINUTES} minutes")
+            else:
+                print("Monthly tweet limit reached after counter update.")
         else:
-            print("Failed to generate tweet content")
+            print("Failed to generate tweet")
     except Exception as e:
-        print(f"Critical Error: {e}")
+        print(f"Error: {e}")
