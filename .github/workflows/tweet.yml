@@ -2,26 +2,36 @@ name: Automated Tweeting
 
 on:
   schedule:
-    # Runs every 30 minutes
-    - cron: '*/30 * * * *'
+    # Runs every 2.4 hours (144 minutes) to achieve 10 posts per day
+    - cron: '0 */2 * * *'
   workflow_dispatch:  # Allows manual trigger
 
 jobs:
   tweet:
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # Set maximum runtime
     
     steps:
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Fetch all history for proper git operations
     
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
+        cache: 'pip'  # Enable pip caching
         
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+      
+    - name: Pull latest changes
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git pull origin main
         
     - name: Run tweet bot
       env:
@@ -30,7 +40,16 @@ jobs:
         TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN_GITHUB }}
         TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET_GITHUB }}
         TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY_GITHUB }}
-      run: python main.py
+      run: |
+        # Retry mechanism for transient failures
+        for i in 1 2 3; do
+          if python main.py; then
+            exit 0
+          fi
+          echo "Attempt $i failed. Waiting 30 seconds before retry..."
+          sleep 30
+        done
+        exit 1  # All retries failed
       
     - name: Commit and push if there are changes
       run: |
@@ -38,4 +57,4 @@ jobs:
         git config --local user.name "github-actions[bot]"
         git add tweet_counter.json tweet_history.json
         git commit -m "Update tweet history and counter" || exit 0
-        git push
+        git push origin main || (git pull --rebase origin main && git push origin main)
