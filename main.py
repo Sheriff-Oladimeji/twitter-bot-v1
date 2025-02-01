@@ -11,32 +11,12 @@ from together import Together
 # Load environment variables
 load_dotenv(find_dotenv())
 
-def handle_rate_limit(e, wait_time=60):
-    """Handle rate limit errors by waiting"""
-    if isinstance(e, tweepy.errors.TooManyRequests):
-        print(f"Rate limit exceeded. Waiting {wait_time} seconds...")
-        time.sleep(wait_time)
-        return True
-    return False
-
-def verify_twitter_auth(max_retries=3):
-    """Verify Twitter credentials with retry mechanism"""
-    for attempt in range(max_retries):
-        try:
-            time.sleep(2)  # Add small delay between attempts
-            twitter_client.get_me()
-            print("Twitter Authentication Successful")
-            return True
-        except tweepy.errors.TooManyRequests as e:
-            if attempt < max_retries - 1:
-                handle_rate_limit(e, wait_time=60*(attempt+1))  # Exponential backoff
-                continue
-            else:
-                print("Failed to verify Twitter auth after multiple retries")
-                return False
-        except Exception as e:
-            print(f"Twitter Authentication Error: {e}")
-            return False
+# Constants
+MONTHLY_TWEET_LIMIT = 470  # Setting it below 500 for safety margin
+DAILY_TWEET_LIMIT = 10  # Changed to 10 tweets per day
+MIN_INTERVAL_MINUTES = 144  # 24 hours * 60 minutes / 10 posts = 144 minutes between posts
+COUNTER_FILE = "tweet_counter.json"
+HISTORY_FILE = "tweet_history.json"
 
 # Twitter API Configuration (OAuth 1.0a REQUIRED for posting tweets)
 twitter_client = tweepy.Client(
@@ -49,14 +29,6 @@ twitter_client = tweepy.Client(
 # Together AI Configuration
 together_client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
 
-# Constants
-MONTHLY_TWEET_LIMIT = 470  # Setting it below 500 for safety margin
-DAILY_TWEET_LIMIT = 10  # Changed to 10 tweets per day
-MIN_INTERVAL_MINUTES = 144  # 24 hours * 60 minutes / 10 posts = 144 minutes between posts
-COUNTER_FILE = "tweet_counter.json"
-HISTORY_FILE = "tweet_history.json"
-
-
 def load_tweet_history():
     """Load previous tweets from history file"""
     if Path(HISTORY_FILE).exists():
@@ -66,7 +38,6 @@ def load_tweet_history():
         except json.JSONDecodeError:
             return {"tweets": []}
     return {"tweets": []}
-
 
 def save_tweet_history(tweet):
     """Save new tweet to history file"""
@@ -79,7 +50,6 @@ def save_tweet_history(tweet):
 
     with open(HISTORY_FILE, "w") as f:
         json.dump(history, f, indent=2)
-
 
 def update_tweet_counter():
     """Update and check monthly tweet counter"""
@@ -109,7 +79,6 @@ def update_tweet_counter():
         print(f"Error updating tweet counter: {e}")
         return False
 
-
 def can_tweet_this_month():
     """Check if we can still tweet this month"""
     try:
@@ -124,9 +93,8 @@ def can_tweet_this_month():
                 return counter_data["tweet_count"] < MONTHLY_TWEET_LIMIT
         return True
     except Exception as e:
-        print(f"Error checking tweet limit: {e}")
+        print(f"Error checking monthly tweet limit: {e}")
         return False
-
 
 def get_last_tweet_time():
     """Get the timestamp of the last tweet"""
@@ -134,49 +102,36 @@ def get_last_tweet_time():
     if history["tweets"]:
         last_tweet = history["tweets"][-1]
         return datetime.fromisoformat(last_tweet["timestamp"])
-    return datetime.min
-
+    return None  # Return None if no tweets exist
 
 def can_tweet_now():
     """Check if enough time has passed since the last tweet"""
-    try:
-        last_tweet_time = get_last_tweet_time()
-        time_since_last = datetime.now() - last_tweet_time
-        return time_since_last >= timedelta(minutes=MIN_INTERVAL_MINUTES)
-    except Exception as e:
-        print(f"Error checking tweet timing: {e}")
-        return False
-
+    last_tweet_time = get_last_tweet_time()
+    if last_tweet_time is None:
+        return True  # If no tweets exist, we can tweet
+    time_since_last = datetime.now() - last_tweet_time
+    return time_since_last >= timedelta(minutes=MIN_INTERVAL_MINUTES)
 
 def get_daily_tweet_count():
     """Get the number of tweets made today"""
-    try:
-        history = load_tweet_history()
-        today = datetime.now().date()
-        
-        # Count tweets from today
-        daily_count = sum(
-            1 for tweet in history["tweets"]
-            if datetime.fromisoformat(tweet["timestamp"]).date() == today
-        )
-        
-        return daily_count
-    except Exception as e:
-        print(f"Error getting daily tweet count: {e}")
-        return DAILY_TWEET_LIMIT  # Return limit as safety measure
-
+    history = load_tweet_history()
+    today = datetime.now().date()
+    
+    # Count tweets from today
+    daily_count = sum(
+        1 for tweet in history["tweets"]
+        if datetime.fromisoformat(tweet["timestamp"]).date() == today
+    )
+    
+    return daily_count
 
 def can_tweet_today():
     """Check if we haven't exceeded the daily tweet limit"""
     return get_daily_tweet_count() < DAILY_TWEET_LIMIT
 
-
 def generate_tweet():
     """Generate tweet about Web3 terminology and concepts"""
     try:
-        # Add delay between requests to respect rate limits
-        time.sleep(2)  # Wait 2 seconds before making a new request
-        
         web3_topics = [
             # Blockchain Fundamentals
             [
@@ -260,38 +215,26 @@ def generate_tweet():
         if tweet.startswith('"') and tweet.endswith('"'):
             tweet = tweet[1:-1]
 
-        # Save to history
-        save_tweet_history(tweet)
-
         return tweet
     except Exception as e:
-        if "429" in str(e):
-            print(f"Rate limit exceeded. Waiting 60 seconds before retrying...")
-            time.sleep(60)  # Wait for 60 seconds if we hit rate limit
-            return generate_tweet()  # Retry the request
         print(f"AI Error: {e}")
         return None
 
-
 def post_tweet(text):
-    """Post tweet with rate limit handling"""
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            time.sleep(2)  # Add small delay between attempts
-            response = twitter_client.create_tweet(text=text)
-            return True
-        except tweepy.errors.TooManyRequests as e:
-            if attempt < max_retries - 1:
-                handle_rate_limit(e, wait_time=60*(attempt+1))
-                continue
-            else:
-                print("Failed to post tweet after multiple retries")
-                return False
-        except Exception as e:
-            print(f"Error posting tweet: {e}")
-            return False
+    """Post tweet to Twitter"""
+    if not text:
+        print("Empty tweet content")
+        return False
 
+    try:
+        response = twitter_client.create_tweet(text=text)
+        print(f"✅ Tweeted: {text}")
+        # Only save to history if tweet was actually posted
+        save_tweet_history(text)
+        return True
+    except tweepy.TweepyException as e:
+        print(f"🚨 Twitter Error: {e}")
+        return False
 
 if __name__ == "__main__":
     try:
@@ -304,54 +247,48 @@ if __name__ == "__main__":
             with open(HISTORY_FILE, "w") as f:
                 json.dump({"tweets": []}, f)
 
-        # Verify credentials with rate limit handling
-        if not verify_twitter_auth():
-            print("Failed to verify Twitter credentials. Exiting.")
-            exit(1)
+        # Verify Twitter credentials first
+        try:
+            twitter_client.get_me()
+            print("✅ Twitter Authentication Successful")
+        except Exception as e:
+            print(f"🚨 Twitter Authentication Failed: {e}")
+            raise
 
         print(f"Bot configured for {DAILY_TWEET_LIMIT} tweets per day, {MIN_INTERVAL_MINUTES} minutes apart")
 
         while True:
-            try:
-                if not can_tweet_this_month():
-                    print("Monthly tweet limit reached. Waiting until next month.")
-                    time.sleep(3600)  # Wait for an hour before checking again
-                    continue
+            if not can_tweet_this_month():
+                print("Monthly tweet limit reached. Waiting until next month.")
+                time.sleep(3600)  # Wait for an hour before checking again
+                continue
 
-                if not can_tweet_today():
-                    print("Daily tweet limit reached. Waiting until tomorrow.")
-                    time.sleep(3600)  # Wait for an hour before checking again
-                    continue
+            if not can_tweet_today():
+                print("Daily tweet limit reached. Waiting until tomorrow.")
+                time.sleep(3600)  # Wait for an hour before checking again
+                continue
 
-                if not can_tweet_now():
-                    minutes_to_wait = MIN_INTERVAL_MINUTES
-                    print(f"Waiting {minutes_to_wait} minutes before next tweet...")
-                    time.sleep(300)  # Check every 5 minutes
-                    continue
-
-                tweet = generate_tweet()
-                if tweet:
-                    success = post_tweet(tweet)
-                    if success:
-                        print(f"Successfully tweeted: {tweet}")
-                        print(f"Daily tweets: {get_daily_tweet_count()}/{DAILY_TWEET_LIMIT}")
-                        print(f"Next tweet in {MIN_INTERVAL_MINUTES} minutes")
+            # Try to generate and post a tweet
+            tweet = generate_tweet()
+            if tweet:
+                success = post_tweet(tweet)
+                if success:
+                    if update_tweet_counter():  # Only update counter if tweet was successful
+                        print(f"📊 Daily tweets: {get_daily_tweet_count()}/{DAILY_TWEET_LIMIT}")
+                        print(f"⏰ Next tweet in {MIN_INTERVAL_MINUTES} minutes")
                         time.sleep(60 * MIN_INTERVAL_MINUTES)  # Wait for the minimum interval
                     else:
-                        print("Failed to post tweet. Retrying in 5 minutes...")
-                        time.sleep(300)
+                        print("Monthly tweet limit reached after counter update.")
+                        time.sleep(3600)
                 else:
-                    print("Failed to generate tweet. Retrying in 5 minutes...")
+                    print("❌ Failed to post tweet. Retrying in 5 minutes...")
                     time.sleep(300)
-
-            except tweepy.errors.TooManyRequests as e:
-                handle_rate_limit(e)
-            except Exception as e:
-                print(f"Error in main loop: {e}")
-                time.sleep(300)  # Wait 5 minutes before retrying on unknown errors
+            else:
+                print("Failed to generate tweet. Retrying in 5 minutes...")
+                time.sleep(300)
 
     except KeyboardInterrupt:
         print("\nBot stopped by user")
     except Exception as e:
-        print(f"Fatal error: {e}")
+        print(f"Error: {e}")
         raise  # Re-raise the exception for GitHub Actions to catch failures
