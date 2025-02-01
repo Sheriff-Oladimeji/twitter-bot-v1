@@ -3,10 +3,10 @@ from dotenv import load_dotenv, find_dotenv
 import tweepy
 from together import Together
 
-# Load environment variables
+# Load our environment variables
 load_dotenv(find_dotenv())
 
-# Twitter API Configuration (OAuth 1.0a REQUIRED for posting tweets)
+# Set up Twitter client with our API keys
 twitter_client = tweepy.Client(
     consumer_key=os.getenv("TWITTER_API_KEY"),
     consumer_secret=os.getenv("TWITTER_API_SECRET"),
@@ -14,7 +14,7 @@ twitter_client = tweepy.Client(
     access_token_secret=os.getenv("TWITTER_ACCESS_TOKEN_SECRET"),
 )
 
-# Twitter API v1.1 for profile updates
+# Need v1.1 API for profile updates
 auth = tweepy.OAuth1UserHandler(
     os.getenv("TWITTER_API_KEY"),
     os.getenv("TWITTER_API_SECRET"),
@@ -23,12 +23,12 @@ auth = tweepy.OAuth1UserHandler(
 )
 twitter_api = tweepy.API(auth)
 
-# Together AI Configuration
+# Set up Together AI for tweet generation
 together_client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
 
 
 def generate_tweet():
-    """Generate tweet using AI"""
+    """Create a new tech-focused tweet"""
     try:
         response = together_client.chat.completions.create(
             model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
@@ -46,71 +46,66 @@ def generate_tweet():
 Structure: Start with a strong hook, provide concise technical insight, end with actionable advice. 
 Avoid emojis, quotes, and markdown. Use 1-2 relevant hashtags. 
 Make it sound like expert advice from a senior developer. 
-Maximum 275 characters. Example:
-"Understanding time complexity is crucial for system design. When working with large datasets, O(n log n) operations can become expensive. Always analyze your access patterns before choosing a sorting algorithm. #Algorithms #SystemDesign""",
+Maximum 275 characters.""",
                 }
             ],
         )
         content = response.choices[0].message.content.strip()
-        # Remove any remaining quotes or special characters
-        return content.replace('"', '').replace('“', '').replace('”', '')
+        # Clean up any quotes that might mess up the tweet
+        return content.replace('"', '').replace('"', '').replace('"', '')
     except Exception as e:
-        print(f"AI Error: {e}")
+        print(f"🚨 Tweet generation failed: {e}")
         return None
 
 
 def post_tweet(text):
-    """Post tweet to Twitter"""
+    """Send out our tweet"""
     if not text:
-        print("Empty tweet content")
+        print("Can't post empty tweet")
         return False
 
     try:
         response = twitter_client.create_tweet(text=text)
-        print(f"✅ Tweeted: {text}")
+        print(f"✅ Posted: {text}")
         return True
     except tweepy.TweepyException as e:
-        print(f"🚨 Twitter Error: {e}")
+        print(f"🚨 Failed to post tweet: {e}")
         return False
 
 
 def update_profile_description():
-    """Update Twitter profile to indicate automation"""
+    """Add our automation label to the profile"""
     try:
-        # Get current profile description
         me = twitter_api.verify_credentials()
         current_description = me.description
 
-        # Check if automation label is already present
+        # Only add the label if it's not there yet
         if "Automated by @dimeji_dev" not in current_description:
-            # Add automation label while preserving existing description
             new_description = f"{current_description}\n\n🤖 Automated by @dimeji_dev"
-            # Ensure it doesn't exceed Twitter's character limit (160)
+            # Twitter has a 160 char limit for bios
             if len(new_description) > 160:
                 new_description = new_description[:157] + "..."
             
-            # Update profile
             twitter_api.update_profile(description=new_description)
-            print("✅ Profile updated with automation label")
+            print("✅ Added automation label to profile")
         else:
-            print("ℹ️ Profile already has automation label")
+            print("ℹ️ Profile already labeled")
     except Exception as e:
-        print(f"🚨 Error updating profile: {e}")
+        print(f"🚨 Couldn't update profile: {e}")
 
 
 if __name__ == "__main__":
-    # Verify credentials
     try:
         twitter_client.get_me()
-        print("🔐 Authentication Successful")
+        print("🔐 Connected to Twitter")
 
-        # Update profile with automation label
+        # Add our automation label
         update_profile_description()
 
-        # Generate and post tweet
+        # Create and post a new tweet
         if tweet_content := generate_tweet():
             post_tweet(tweet_content)
         else:
-            print("❌ Failed to generate tweet content")
+            print("❌ Couldn't generate tweet content")
     except Exception as e:
-        print(f"🔴 Critical Error: {e}")
+        print(f"🔴 Something went wrong: {e}")

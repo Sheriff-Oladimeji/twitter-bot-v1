@@ -8,17 +8,17 @@ from dotenv import load_dotenv, find_dotenv
 import tweepy
 from together import Together
 
-# Load environment variables
+# Load our environment variables
 load_dotenv(find_dotenv())
 
 # Constants
-MONTHLY_TWEET_LIMIT = 470  # Setting it below 500 for safety margin
-DAILY_TWEET_LIMIT = 5  #  5 tweets per day
-MIN_INTERVAL_MINUTES = 144  # 144 minutes between posts
+MONTHLY_TWEET_LIMIT = 470  # We're setting it below 500 for a safety margin
+DAILY_TWEET_LIMIT = 5  # We're tweeting 5 times a day
+MIN_INTERVAL_MINUTES = 144  # We're waiting 144 minutes between posts
 COUNTER_FILE = "tweet_counter.json"
 HISTORY_FILE = "tweet_history.json"
 
-# Twitter API Configuration (OAuth 1.0a REQUIRED for posting tweets)
+# Set up Twitter client with our API keys
 twitter_client = tweepy.Client(
     consumer_key=os.getenv("TWITTER_API_KEY"),
     consumer_secret=os.getenv("TWITTER_API_SECRET"),
@@ -26,7 +26,7 @@ twitter_client = tweepy.Client(
     access_token_secret=os.getenv("TWITTER_ACCESS_TOKEN_SECRET"),
 )
 
-# Twitter API v1.1 for profile updates
+# Need v1.1 API for profile updates
 auth = tweepy.OAuth1UserHandler(
     os.getenv("TWITTER_API_KEY"),
     os.getenv("TWITTER_API_SECRET"),
@@ -35,11 +35,11 @@ auth = tweepy.OAuth1UserHandler(
 )
 twitter_api = tweepy.API(auth)
 
-# Together AI Configuration
+# Set up Together AI for tweet generation
 together_client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
 
 def load_tweet_history():
-    """Load previous tweets from history file"""
+    """Load our previous tweets from the history file"""
     if Path(HISTORY_FILE).exists():
         try:
             with open(HISTORY_FILE, "r") as f:
@@ -49,19 +49,19 @@ def load_tweet_history():
     return {"tweets": []}
 
 def save_tweet_history(tweet):
-    """Save new tweet to history file"""
+    """Keep track of our tweets"""
     history = load_tweet_history()
     history["tweets"].append(
         {"content": tweet, "timestamp": datetime.now().isoformat()}
     )
-    # Keep only last 100 tweets
+    # Just keep the last 100 tweets to save space
     history["tweets"] = history["tweets"][-100:]
 
     with open(HISTORY_FILE, "w") as f:
         json.dump(history, f, indent=2)
 
 def update_tweet_counter():
-    """Update and check monthly tweet counter"""
+    """Update and check our monthly tweet counter"""
     current_month = datetime.now().strftime("%Y-%m")
 
     try:
@@ -89,7 +89,7 @@ def update_tweet_counter():
         return False
 
 def can_tweet_this_month():
-  
+    """Check if we haven't hit our monthly tweet limit"""
     try:
         if Path(COUNTER_FILE).exists():
             with open(COUNTER_FILE, "r") as f:
@@ -106,7 +106,7 @@ def can_tweet_this_month():
         return False
 
 def get_last_tweet_time():
-    """Get the timestamp of the last tweet"""
+    """Get the timestamp of our last tweet"""
     history = load_tweet_history()
     if history["tweets"]:
         last_tweet = history["tweets"][-1]
@@ -114,7 +114,7 @@ def get_last_tweet_time():
     return None  # Return None if no tweets exist
 
 def can_tweet_now():
-    """Check if enough time has passed since the last tweet"""
+    """Check if enough time has passed since our last tweet"""
     last_tweet_time = get_last_tweet_time()
     if last_tweet_time is None:
         return True  # If no tweets exist, we can tweet
@@ -122,7 +122,7 @@ def can_tweet_now():
     return time_since_last >= timedelta(minutes=MIN_INTERVAL_MINUTES)
 
 def get_daily_tweet_count():
-    """Get the number of tweets made today"""
+    """Check how many tweets we've sent today"""
     history = load_tweet_history()
     today = datetime.now().date()
     
@@ -135,11 +135,11 @@ def get_daily_tweet_count():
     return daily_count
 
 def can_tweet_today():
-    """Check if we haven't exceeded the daily tweet limit"""
+    """Make sure we haven't hit our daily limit"""
     return get_daily_tweet_count() < DAILY_TWEET_LIMIT
 
 def generate_tweet():
-    """Generate tweet about Web3 terminology and concepts"""
+    """Create a new tech-focused tweet"""
     try:
         response = together_client.chat.completions.create(
             model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
@@ -162,16 +162,16 @@ Maximum 275 characters.""",
             ],
         )
         content = response.choices[0].message.content.strip()
-        # Remove any remaining quotes or special characters
+        # Clean up any quotes that might mess up the tweet
         return content.replace('"', '').replace('"', '').replace('"', '')
     except Exception as e:
         print(f"AI Error: {e}")
         return None
 
 def post_tweet(text):
-    """Post tweet to Twitter"""
+    """Send out our tweet"""
     if not text:
-        print("Empty tweet content")
+        print("Can't post empty tweet")
         return False
 
     try:
@@ -185,17 +185,16 @@ def post_tweet(text):
         return False
 
 def update_profile_description():
-    """Update Twitter profile to indicate automation"""
+    """Add our automation label to the profile"""
     try:
         # Get current profile description
         me = twitter_api.verify_credentials()
         current_description = me.description
 
-        # Check if automation label is already present
+        # Only add the label if it's not there yet
         if "Automated by @dimeji_dev" not in current_description:
-            # Add automation label while preserving existing description
             new_description = f"{current_description}\n\n🤖 Automated by @dimeji_dev"
-            # Ensure it doesn't exceed Twitter's character limit (160)
+            # Twitter has a 160 char limit for bios
             if len(new_description) > 160:
                 new_description = new_description[:157] + "..."
             
