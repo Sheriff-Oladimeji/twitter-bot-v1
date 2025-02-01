@@ -13,8 +13,8 @@ load_dotenv(find_dotenv())
 
 # Constants
 MONTHLY_TWEET_LIMIT = 470  # Setting it below 500 for safety margin
-DAILY_TWEET_LIMIT = 10  # Changed to 10 tweets per day
-MIN_INTERVAL_MINUTES = 144  # 24 hours * 60 minutes / 10 posts = 144 minutes between posts
+DAILY_TWEET_LIMIT = 5  #  5 tweets per day
+MIN_INTERVAL_MINUTES = 144  # 144 minutes between posts
 COUNTER_FILE = "tweet_counter.json"
 HISTORY_FILE = "tweet_history.json"
 
@@ -80,7 +80,7 @@ def update_tweet_counter():
         return False
 
 def can_tweet_this_month():
-    """Check if we can still tweet this month"""
+  
     try:
         if Path(COUNTER_FILE).exists():
             with open(COUNTER_FILE, "r") as f:
@@ -132,90 +132,29 @@ def can_tweet_today():
 def generate_tweet():
     """Generate tweet about Web3 terminology and concepts"""
     try:
-        web3_topics = [
-            # Blockchain Fundamentals
-            [
-                "Explain blockchain basics",
-                "Define distributed ledger",
-                "Explain consensus mechanisms",
-                "Define smart contracts",
-                "Explain gas fees",
-            ],
-            # DeFi Concepts
-            [
-                "Explain liquidity pools",
-                "Define yield farming",
-                "Explain staking",
-                "Define AMM (Automated Market Maker)",
-                "Explain impermanent loss",
-            ],
-            # NFTs and Digital Assets
-            [
-                "Explain NFT basics",
-                "Define token standards",
-                "Explain digital scarcity",
-                "Define metadata in NFTs",
-                "Explain minting process",
-            ],
-            # Web3 Infrastructure
-            [
-                "Explain Web3 wallets",
-                "Define Layer 2 solutions",
-                "Explain interoperability",
-                "Define oracles",
-                "Explain zero-knowledge proofs",
-            ],
-            # Crypto Economics
-            [
-                "Explain tokenomics",
-                "Define governance tokens",
-                "Explain token utilities",
-                "Define market cap",
-                "Explain token vesting",
-            ],
-        ]
-
-        system_prompt = """You're a Web3 educator sharing daily explanations of blockchain and cryptocurrency concepts. Your tweets should be educational yet easy to understand:
-
-        Guidelines:
-        1. Explain one Web3 concept clearly and concisely
-        2. Use simple language to break down complex terms
-        3. Focus on accuracy and clarity
-        4. Include practical examples when possible
-        5. Keep it beginner-friendly
-        6. Add relevant emojis to make it engaging
-        
-        Example tone:
-        - 🔍 What is a Smart Contract? Think of it as a digital vending machine: it automatically executes actions when specific conditions are met, no middleman needed!
-        - 💡 Gas fees explained: Just like paying for fuel to drive your car, you pay gas fees to perform actions on the blockchain. These fees go to the network validators!
-        - 🌉 Layer 2 solutions are like express lanes on a highway - they help process transactions faster and cheaper while still maintaining the security of the main blockchain."""
-
-        # Load tweet history for checking recent tweets
-        history = load_tweet_history()
-        recent_tweets = [tweet["content"] for tweet in history["tweets"][-5:]]
-
-        # Randomly select category and specific prompt
-        category = random.choice(web3_topics)
-        prompt = random.choice(category)
-
         response = together_client.chat.completions.create(
             model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
             messages=[
-                {"role": "system", "content": system_prompt},
                 {
                     "role": "user",
-                    "content": f"Generate an educational tweet explaining: {prompt}. Make it easy to understand for beginners while being technically accurate. Include relevant emojis. Make sure it's different from these recent tweets: {recent_tweets}",
-                },
+                    "content": """Generate an educational tech tweet that provides genuine value. Focus on one of these areas:
+- LeetCode problem-solving strategies
+- System design patterns
+- Coding best practices
+- Computer science fundamentals
+- Indie hacking product development
+- Algorithm optimization techniques
+
+Structure: Start with a strong hook, provide concise technical insight, end with actionable advice. 
+Avoid emojis, quotes, and markdown. Use 1-2 relevant hashtags. 
+Make it sound like expert advice from a senior developer. 
+Maximum 275 characters.""",
+                }
             ],
         )
-
-        tweet = response.choices[0].message.content.strip()
-
-        # Remove any quotes that might have been added
-        if tweet.startswith('"') and tweet.endswith('"'):
-            tweet = tweet[1:-1]
-
-        return tweet
+        content = response.choices[0].message.content.strip()
+        # Remove any remaining quotes or special characters
+        return content.replace('"', '').replace('"', '').replace('"', '')
     except Exception as e:
         print(f"AI Error: {e}")
         return None
