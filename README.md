@@ -1,20 +1,26 @@
 # Twitter Bot
 
-An automated Twitter bot that generates and posts engaging tweets about tech and learning experiences.
+An automated Twitter bot that generates and posts educational tech content, focusing on programming concepts, best practices, and software development insights.
 
 ## Features
 
-- Generates natural, engaging tweets using Together AI
+- Generates informative tech-focused tweets using Together AI's LLaMA 3.1 model
+- Covers topics like:
+  - LeetCode problem-solving strategies
+  - System design patterns
+  - Coding best practices
+  - Computer science fundamentals
+  - Indie hacking product development
+  - Algorithm optimization techniques
 - Posts automatically at regular intervals
-- Maintains rate limits and tweet history
-- Ensures unique content by checking recent tweets
+- Maintains tweet history for rate limiting
+- Ensures high-quality, educational content
 
 ## Rate Limits
 
-- Posts every 30 minutes
-- Maximum 24 tweets per day
-- Monthly limit of 470 tweets
-- Built-in safety checks to prevent exceeding Twitter's limits
+- Posts 5 times per day (approximately every 5 hours)
+- Tracks daily tweet history to prevent exceeding limits
+- Built-in safety checks to prevent duplicate content
 
 ## Setup
 
@@ -40,9 +46,10 @@ python main.py
 ## GitHub Actions
 
 The bot runs automatically via GitHub Actions:
-- Scheduled to run every 30 minutes
+- Scheduled to run every 5 hours (5 times per day)
 - Can be triggered manually through workflow_dispatch
-- Checks rate limits before posting
+- Maintains tweet history and checks daily limits before posting
+- Automatically commits and updates tweet history
 
 ## Dependencies
 
