@@ -10,6 +10,8 @@ jobs:
   tweet:
     runs-on: ubuntu-latest
     timeout-minutes: 5  # Reduced timeout since we're doing simpler operations
+    permissions:
+      contents: write  # Required for committing changes
     
     steps:
     - uses: actions/checkout@v3

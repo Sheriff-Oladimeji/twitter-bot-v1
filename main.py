@@ -26,6 +26,15 @@ twitter_client = tweepy.Client(
     access_token_secret=os.getenv("TWITTER_ACCESS_TOKEN_SECRET"),
 )
 
+# Twitter API v1.1 for profile updates
+auth = tweepy.OAuth1UserHandler(
+    os.getenv("TWITTER_API_KEY"),
+    os.getenv("TWITTER_API_SECRET"),
+    os.getenv("TWITTER_ACCESS_TOKEN"),
+    os.getenv("TWITTER_ACCESS_TOKEN_SECRET")
+)
+twitter_api = tweepy.API(auth)
+
 # Together AI Configuration
 together_client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
 
@@ -175,6 +184,29 @@ def post_tweet(text):
         print(f"🚨 Twitter Error: {e}")
         return False
 
+def update_profile_description():
+    """Update Twitter profile to indicate automation"""
+    try:
+        # Get current profile description
+        me = twitter_api.verify_credentials()
+        current_description = me.description
+
+        # Check if automation label is already present
+        if "🤖 Automated by" not in current_description:
+            # Add automation label while preserving existing description
+            new_description = f"{current_description}\n\n🤖 Automated by GitHub Actions"
+            # Ensure it doesn't exceed Twitter's character limit (160)
+            if len(new_description) > 160:
+                new_description = new_description[:157] + "..."
+            
+            # Update profile
+            twitter_api.update_profile(description=new_description)
+            print("✅ Profile updated with automation label")
+        else:
+            print("ℹ️ Profile already has automation label")
+    except Exception as e:
+        print(f"🚨 Error updating profile: {e}")
+
 if __name__ == "__main__":
     try:
         # Initialize files if they don't exist
@@ -195,6 +227,9 @@ if __name__ == "__main__":
             raise
 
         print(f"Bot configured for {DAILY_TWEET_LIMIT} tweets per day, {MIN_INTERVAL_MINUTES} minutes apart")
+
+        # Update profile with automation label
+        update_profile_description()
 
         while True:
             if not can_tweet_this_month():
