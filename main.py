@@ -192,9 +192,9 @@ def update_profile_description():
         current_description = me.description
 
         # Check if automation label is already present
-        if "🤖 Automated by" not in current_description:
+        if "Automated by @dimeji_dev" not in current_description:
             # Add automation label while preserving existing description
-            new_description = f"{current_description}\n\n🤖 Automated by GitHub Actions"
+            new_description = f"{current_description}\n\n🤖 Automated by @dimeji_dev"
             # Ensure it doesn't exceed Twitter's character limit (160)
             if len(new_description) > 160:
                 new_description = new_description[:157] + "..."
